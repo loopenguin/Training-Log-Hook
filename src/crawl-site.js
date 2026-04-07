@@ -38,12 +38,17 @@ export async function crawlSiteData(config) {
   try {
     await page.goto(config.targetSite.url, { waitUntil: "networkidle", timeout: 60000 });
 
-    // (필살기 1) 타겟 주소 접속 후 로그인 창이 안 뜨고 홈화면(v2/home)에 멈췄을 경우 우측 상단 '로그인' 버튼 강제 클릭
-    const entryLoginBtn = page.locator('a[href*="/login"], header button:has-text("로그인")').first();
+    // (필살기 1) 타겟 주소 접속 후 튕기거나 로그인 창이 당장 안 보이면 '로그인'이라고 적힌 모든 버튼을 뒤져서 눈에 보이는 것을 강제 클릭
     try {
-      if ((await entryLoginBtn.count()) > 0 && await entryLoginBtn.isVisible({ timeout: 2000 })) {
-        await entryLoginBtn.click();
-        await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(3000); // UI Hydration 안정화 3초 대기
+      const loginBtns = await page.locator('a:has-text("로그인"), button:has-text("로그인")').all();
+      for (const btn of loginBtns) {
+        if (await btn.isVisible()) {
+          await btn.click();
+          await page.waitForLoadState("networkidle");
+          await page.waitForTimeout(2000);
+          break;
+        }
       }
     } catch(e) {}
 
