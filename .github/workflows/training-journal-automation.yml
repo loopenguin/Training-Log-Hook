@@ -1,0 +1,43 @@
+name: training-journal-automation
+
+on:
+  schedule:
+    - cron: "30 8 * * *" # KST 17:30
+  workflow_dispatch:
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run pipeline
+        run: npm run start
+        env:
+          TARGET_SITE_URL: ${{ secrets.TARGET_SITE_URL }}
+          TARGET_SITE_ID: ${{ secrets.TARGET_SITE_ID }}
+          TARGET_SITE_PW: ${{ secrets.TARGET_SITE_PW }}
+          TARGET_SITE_ID_SELECTOR: ${{ secrets.TARGET_SITE_ID_SELECTOR }}
+          TARGET_SITE_PW_SELECTOR: ${{ secrets.TARGET_SITE_PW_SELECTOR }}
+          TARGET_SITE_SUBMIT_SELECTOR: ${{ secrets.TARGET_SITE_SUBMIT_SELECTOR }}
+          TARGET_SITE_REFRESH_SELECTOR: ${{ secrets.TARGET_SITE_REFRESH_SELECTOR }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_SHEET_RANGE: ${{ secrets.GOOGLE_SHEET_RANGE }}
+          GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TIMEZONE: Asia/Seoul
