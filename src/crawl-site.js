@@ -2,20 +2,24 @@ import { chromium } from "playwright";
 import { PipelineStepError } from "./errors.js";
 
 async function fillIfVisible(page, selector, value, label) {
-  const element = page.locator(selector).first();
-  if ((await element.count()) === 0) {
-    throw new PipelineStepError("SITE_CRAWL", `${label} 입력 요소를 찾지 못했습니다. selector=${selector}`);
+  try {
+    const element = page.locator(selector).first();
+    await element.waitFor({ state: "visible", timeout: 15000 });
+    await element.fill(value);
+  } catch (error) {
+    throw new PipelineStepError("SITE_CRAWL", `${label} 입력 요소를 찾지 못하거나 대기 시간(15초)을 초과했습니다. selector=${selector}`);
   }
-  await element.fill(value);
 }
 
 async function clickIfExists(page, selector) {
-  const button = page.locator(selector).first();
-  if ((await button.count()) === 0) {
+  try {
+    const button = page.locator(selector).first();
+    await button.waitFor({ state: "visible", timeout: 10000 });
+    await button.click();
+    return true;
+  } catch (error) {
     return false;
   }
-  await button.click();
-  return true;
 }
 
 export async function crawlSiteData(config) {
