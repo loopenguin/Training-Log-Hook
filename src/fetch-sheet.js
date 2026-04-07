@@ -43,6 +43,7 @@ export async function fetchSheetData(config) {
       records
     };
   } catch (error) {
-    throw new PipelineStepError("SHEET_FETCH", "Google Sheet 데이터 조회에 실패했습니다.", error);
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new PipelineStepError("SHEET_FETCH", `Google Sheet 데이터 조회에 실패했습니다. 상세원인: ${detail}`, error);
   }
 }
