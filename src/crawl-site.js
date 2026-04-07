@@ -7,7 +7,13 @@ async function fillIfVisible(page, selector, value, label) {
     await element.waitFor({ state: "visible", timeout: 15000 });
     await element.fill(value);
   } catch (error) {
-    throw new PipelineStepError("SITE_CRAWL", `${label} 입력 요소를 찾지 못하거나 대기 시간(15초)을 초과했습니다. selector=${selector}`);
+    let currentUrl = "unknown";
+    let title = "unknown";
+    try {
+      currentUrl = page.url();
+      title = await page.title();
+    } catch(e) {}
+    throw new PipelineStepError("SITE_CRAWL", `${label} 입력 요소 대기 시간(15초)을 초과했습니다. selector=${selector} \n[디버깅 정보] 현재 주소: ${currentUrl} \n현재 타이틀: ${title}`);
   }
 }
 
@@ -24,11 +30,13 @@ async function clickIfExists(page, selector) {
 
 export async function crawlSiteData(config) {
   const browser = await chromium.launch({ headless: config.runtime.headless });
-  const context = await browser.newContext();
+  const context = await browser.newContext({
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+  });
   const page = await context.newPage();
 
   try {
-    await page.goto(config.targetSite.url, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.goto(config.targetSite.url, { waitUntil: "networkidle", timeout: 60000 });
 
     await fillIfVisible(page, config.targetSite.selectors.idSelector, config.targetSite.credentials.id, "아이디");
     await fillIfVisible(
