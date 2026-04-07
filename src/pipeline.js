@@ -2,7 +2,7 @@ import { crawlSiteData } from "./crawl-site.js";
 import { sendDiscordMessage } from "./discord.js";
 import { normalizeError } from "./errors.js";
 import { fetchSheetData } from "./fetch-sheet.js";
-import { transformToDiscordMessage } from "./transform-data.js";
+import { parseSiteDate, buildDiscordMessage } from "./transform-data.js";
 
 function formatFailureMessage(config, error) {
   const now = new Intl.DateTimeFormat("ko-KR", {
@@ -26,8 +26,17 @@ export async function runPipeline(config) {
 
   try {
     siteData = await crawlSiteData(config);
+    
+    // 사이트 크롤링 본문에서 이번 훈련일자 추출 및 시트탭/컬럼명 계산
+    const { sheetTabName, columnDateName, rawDateFull } = parseSiteDate(siteData.lines);
+    
+    // 목표 시트의 Range를 오늘 날짜의 탭(예: "26년 4월!A:Z")으로 강제 오버라이딩
+    config.google.range = `${sheetTabName}!A:Z`;
+
     sheetData = await fetchSheetData(config);
-    const message = transformToDiscordMessage(config, siteData, sheetData);
+    
+    const result = buildDiscordMessage(siteData, sheetData, rawDateFull, columnDateName);
+    const message = result.discordText;
 
     if (!config.runtime.dryRun) {
       await sendDiscordMessage(config.discord.webhookUrl, message);

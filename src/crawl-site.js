@@ -68,8 +68,9 @@ export async function crawlSiteData(config) {
       );
     }
 
+    // SSO(통합로그인) 쿠키 생성 및 리다이렉트 대기 (매우 중요)
+    await page.waitForTimeout(5000);
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
 
     // (필살기 2) 로그인을 무사히 마쳤으나, 엉뚱한 대시보드로 떨어졌다면 진짜 목표 사이트로 한 번 더 강제 재진입
     // url에 쿼리 파라미터가 붙을 수 있으므로 startsWith/includes 사용
@@ -89,7 +90,8 @@ export async function crawlSiteData(config) {
     return {
       capturedAt: new Date().toISOString(),
       lineCount: normalizedLines.length,
-      previewLines: normalizedLines.slice(0, 20)
+      previewLines: normalizedLines.slice(0, 20),
+      lines: normalizedLines
     };
   } catch (error) {
     if (error instanceof PipelineStepError) {

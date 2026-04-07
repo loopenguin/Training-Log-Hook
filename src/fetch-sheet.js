@@ -6,13 +6,22 @@ function rowsToRecords(rows) {
     return [];
   }
 
-  const headers = rows[0];
-  return rows.slice(1).map((row, rowIndex) => {
+  // "이름" 이라는 문자열이 포함된 셀이 있는 행을 진짜 헤더로 간주 (통상 2~4행 사이에 위치함)
+  let headerRowIndex = 0;
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    if (rows[i] && rows[i].some(cell => cell && typeof cell === 'string' && cell.replace(/\s/g, '').includes("이름"))) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+
+  const headers = rows[headerRowIndex];
+  return rows.slice(headerRowIndex + 1).map((row, rowIndex) => {
     const record = {};
     headers.forEach((header, colIndex) => {
       record[header || `column_${colIndex + 1}`] = row[colIndex] ?? "";
     });
-    record.__row = rowIndex + 2;
+    record.__row = headerRowIndex + rowIndex + 2;
     return record;
   });
 }
