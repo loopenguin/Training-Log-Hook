@@ -38,6 +38,15 @@ export async function crawlSiteData(config) {
   try {
     await page.goto(config.targetSite.url, { waitUntil: "networkidle", timeout: 60000 });
 
+    // (필살기 1) 타겟 주소 접속 후 로그인 창이 안 뜨고 홈화면(v2/home)에 멈췄을 경우 우측 상단 '로그인' 버튼 강제 클릭
+    const entryLoginBtn = page.locator('a[href*="/login"], header button:has-text("로그인")').first();
+    try {
+      if ((await entryLoginBtn.count()) > 0 && await entryLoginBtn.isVisible({ timeout: 2000 })) {
+        await entryLoginBtn.click();
+        await page.waitForLoadState("networkidle");
+      }
+    } catch(e) {}
+
     await fillIfVisible(page, config.targetSite.selectors.idSelector, config.targetSite.credentials.id, "아이디");
     await fillIfVisible(
       page,
@@ -54,7 +63,15 @@ export async function crawlSiteData(config) {
       );
     }
 
+    await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
+
+    // (필살기 2) 로그인을 무사히 마쳤으나, 엉뚱한 대시보드로 떨어졌다면 진짜 목표 사이트로 한 번 더 강제 재진입
+    // url에 쿼리 파라미터가 붙을 수 있으므로 startsWith/includes 사용
+    if (!page.url().includes("attendance-manage")) {
+       await page.goto(config.targetSite.url, { waitUntil: "networkidle", timeout: 30000 });
+    }
+
     await clickIfExists(page, config.targetSite.selectors.refreshSelector);
     await page.waitForTimeout(1000);
 
