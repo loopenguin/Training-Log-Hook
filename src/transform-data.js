@@ -28,11 +28,17 @@ export function parseSiteDate(lines) {
 export function buildDiscordMessage(siteData, sheetData, rawDateFull, columnDateName) {
   // 1. 사이트 데이터 파싱
   const lines = siteData.lines;
-  const resultIdx = lines.indexOf("결과");
-  const endIdx = lines.indexOf("훈련정보");
+  
+  // 요소 단위로 완전히 쪼개진 배열 내에서 끝에서부터 탐색하여 가장 마지막 섹션을 확보
+  const resultIdx = lines.lastIndexOf("결과");
+  const endIdx = lines.lastIndexOf("훈련정보");
   
   if (resultIdx === -1 || endIdx === -1) {
-    throw new PipelineStepError("DATA_TRANSFORM", "사이트 본문에서 학생 출결 영역(결과 ~ 훈련정보)을 특정할 수 없습니다.");
+    const debugStr = lines.join(" | ");
+    throw new PipelineStepError(
+      "DATA_TRANSFORM", 
+      `사이트 본문에서 학생 출결 영역(결과 ~ 훈련정보)을 특정할 수 없습니다. \n[결과 idx=${resultIdx}, 훈련정보 idx=${endIdx}]\n\n[디버깅-본문 덤프(일부)]\n${debugStr.substring(0, 1000)}...`
+    );
   }
 
   const studentBlock = lines.slice(resultIdx + 1, endIdx);

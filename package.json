@@ -14,6 +14,7 @@
   "dependencies": {
     "dotenv": "^16.6.1",
     "googleapis": "^157.0.0",
+    "holidays-kr": "^1.1.5",
     "playwright": "^1.54.1"
   }
 }

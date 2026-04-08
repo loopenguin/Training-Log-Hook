@@ -89,7 +89,7 @@ export async function crawlSiteData(config) {
 
     const bodyText = await page.locator("body").innerText();
     const normalizedLines = bodyText
-      .split("\n")
+      .split(/[\n\t]+/)
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
 
