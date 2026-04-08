@@ -78,8 +78,14 @@ export async function crawlSiteData(config) {
        await page.goto(config.targetSite.url, { waitUntil: "networkidle", timeout: 30000 });
     }
 
-    await clickIfExists(page, config.targetSite.selectors.refreshSelector);
-    await page.waitForTimeout(1000);
+    const didClickRefresh = await clickIfExists(page, config.targetSite.selectors.refreshSelector);
+    if (didClickRefresh) {
+      // 출석정보 불러오기 버튼을 누른 후, API 통신 및 화면 렌더링이 완료될 때까지 대기
+      await page.waitForLoadState("networkidle", { timeout: 30000 });
+      await page.waitForTimeout(3000); 
+    } else {
+      await page.waitForTimeout(2000);
+    }
 
     const bodyText = await page.locator("body").innerText();
     const normalizedLines = bodyText

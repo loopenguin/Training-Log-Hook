@@ -1,17 +1,15 @@
 import { PipelineStepError } from "./errors.js";
 
 export function parseSiteDate(lines) {
-  // 1. '훈련일자' 텍스트 패러다임 검색
-  const idx = lines.indexOf("훈련일자");
-  if (idx === -1 || idx + 1 >= lines.length) {
-    throw new PipelineStepError("DATA_TRANSFORM", "사이트 본문에서 '훈련일자' 항목을 찾지 못했습니다. 본문 렌더링 또는 SSO 로그인 지연 문제일 수 있습니다.");
+  const combinedText = lines.join(" ");
+  const dateMatch = combinedText.match(/\d{4}-\d{2}-\d{2}/);
+  
+  if (!dateMatch) {
+    const preview = lines.slice(0, 10).join(" | ");
+    throw new PipelineStepError("DATA_TRANSFORM", `사이트 본문에서 날짜 포맷(YYYY-MM-DD)을 찾지 못했습니다. '출석정보 불러오기' 버튼 클릭 누락이거나 렌더링 지연 문제일 수 있습니다.\n[디버깅-초반 10줄] ${preview}`);
   }
   
-  const rawDate = lines[idx + 1].trim(); // 예: "2026-04-07"
-  
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
-    throw new PipelineStepError("DATA_TRANSFORM", `사이트 추출 날짜 형식이 잘못되었습니다: ${rawDate}`);
-  }
+  const rawDate = dateMatch[0];
 
   // "2026-04-07" -> "26년 4월" 및 "2026. 4. 7" 로 변환
   const [yyyy, mm, dd] = rawDate.split("-");

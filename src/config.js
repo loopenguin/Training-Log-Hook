@@ -16,7 +16,7 @@ const DEFAULT_SELECTORS = {
   submitSelector:
     "button[type='submit'], input[type='submit'], button:has-text('로그인'), button:has-text('Login')",
   refreshSelector:
-    "button:has-text('갱신'), button:has-text('새로고침'), button:has-text('Refresh'), [data-action='refresh']"
+    "button:has-text('갱신'), button:has-text('새로고침'), button:has-text('출석정보 불러오기'), button:has-text('Refresh'), [data-action='refresh']"
 };
 
 function assertRequiredEnv() {
@@ -41,6 +41,14 @@ function parseBoolean(value, fallback = false) {
     return false;
   }
   return fallback;
+}
+
+function getTodayKstDateString(timezone = "Asia/Seoul") {
+  const date = new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function parseGoogleServiceAccount(rawValue) {
@@ -68,9 +76,11 @@ export function loadConfig() {
     );
   }
 
+  const tz = process.env.TIMEZONE || "Asia/Seoul";
+
   return {
     targetSite: {
-      url: process.env.TARGET_SITE_URL.trim(),
+      url: process.env.TARGET_SITE_URL.trim().replace(/\{\{TODAY\}\}/g, getTodayKstDateString(tz)),
       credentials: {
         id: process.env.TARGET_SITE_ID,
         password: process.env.TARGET_SITE_PW
@@ -91,7 +101,7 @@ export function loadConfig() {
       webhookUrl: process.env.DISCORD_WEBHOOK_URL.trim()
     },
     runtime: {
-      timezone: process.env.TIMEZONE || "Asia/Seoul",
+      timezone: tz,
       dryRun: parseBoolean(process.env.DRY_RUN, false),
       headless: parseBoolean(process.env.PLAYWRIGHT_HEADLESS, true)
     }

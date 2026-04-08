@@ -3,6 +3,15 @@ import { sendDiscordMessage } from "./discord.js";
 import { normalizeError } from "./errors.js";
 import { fetchSheetData } from "./fetch-sheet.js";
 import { parseSiteDate, buildDiscordMessage } from "./transform-data.js";
+import { isHoliday } from "./holidays.js";
+
+function getTodayKstDateString(timezone = "Asia/Seoul") {
+  const date = new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 function formatFailureMessage(config, error) {
   const now = new Intl.DateTimeFormat("ko-KR", {
@@ -21,6 +30,25 @@ function formatFailureMessage(config, error) {
 }
 
 export async function runPipeline(config) {
+  const todayKst = getTodayKstDateString(config.runtime.timezone);
+
+  if (isHoliday(todayKst)) {
+    const skipMsg = `[SKIP] 훈련일지 자동화 스킵 완료\n${todayKst} 은(는) 캘린더 공휴일로 지정되어 파이프라인 구동을 종료합니다.`;
+    console.log(skipMsg);
+    
+    if (!config.runtime.dryRun) {
+      // (선택) 원한다면 공휴일 스킵 알림을 디스코드로 보낼 수도 있으나, 매번 오면 번거로우므로 생략하거나 보낼 수 있습니다.
+      // await sendDiscordMessage(config.discord.webhookUrl, skipMsg);
+    }
+    
+    return {
+      ok: true,
+      skip: true,
+      siteLines: 0,
+      sheetRecords: 0
+    };
+  }
+
   let siteData;
   let sheetData;
 
