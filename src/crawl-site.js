@@ -35,6 +35,12 @@ export async function crawlSiteData(config) {
   });
   const page = await context.newPage();
 
+  // 버튼 클릭 시 나타나는 alert나 confirm(예: "데이터를 불러오시겠습니까?")을 자동으로 수락합니다.
+  page.on("dialog", async (dialog) => {
+    console.log(`[DIALOG] ${dialog.type()} message: ${dialog.message()}`);
+    await dialog.accept();
+  });
+
   try {
     await page.goto(config.targetSite.url, { waitUntil: "networkidle", timeout: 60000 });
 
@@ -88,11 +94,17 @@ export async function crawlSiteData(config) {
 
     const didClickRefresh = await clickIfExists(page, config.targetSite.selectors.refreshSelector);
     if (didClickRefresh) {
-      // 출석정보 불러오기 버튼을 누른 후, API 통신 및 화면 렌더링이 완료될 때까지 대기
       await page.waitForLoadState("networkidle", { timeout: 30000 });
-      await page.waitForTimeout(3000); 
+      // 명단이 전부 로딩될 때까지 (최대 10초) 일정 주기로 '훈련정보' 키워드를 확인하며 대기합니다.
+      for (let i = 0; i < 10; i++) {
+        await page.waitForTimeout(1000);
+        const currentBody = await page.locator("body").innerText();
+        if (currentBody.includes("훈련정보") && currentBody.includes("결과")) {
+           break;
+        }
+      }
     } else {
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(3000);
     }
 
     const bodyText = await page.locator("body").innerText();
