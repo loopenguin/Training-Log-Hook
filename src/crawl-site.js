@@ -72,10 +72,18 @@ export async function crawlSiteData(config) {
     await page.waitForTimeout(5000);
     await page.waitForLoadState("networkidle");
 
-    // (필살기 2) 로그인을 무사히 마쳤으나, 엉뚱한 대시보드로 떨어졌다면 진짜 목표 사이트로 한 번 더 강제 재진입
-    // url에 쿼리 파라미터가 붙을 수 있으므로 startsWith/includes 사용
-    if (!page.url().includes("attendance-manage")) {
-       await page.goto(config.targetSite.url, { waitUntil: "networkidle", timeout: 30000 });
+    // 2. 훈련일지(diary) 페이지로 이동 (중요: 크롤링과 등록 모두 이 페이지에서 진행)
+    const baseTargetUrl = config.targetSite.url;
+    let diaryUrl = baseTargetUrl;
+    if (baseTargetUrl.includes("attendance-manage")) {
+       diaryUrl = baseTargetUrl.replace("attendance-manage", `diary/${config.runtime.todayKst}`);
+    } else if (!page.url().includes("diary")) {
+       diaryUrl = baseTargetUrl; // fallbacks
+    }
+
+    if (!page.url().includes("diary")) {
+       await page.goto(diaryUrl, { waitUntil: "networkidle", timeout: 30000 });
+       await page.waitForTimeout(2000);
     }
 
     const didClickRefresh = await clickIfExists(page, config.targetSite.selectors.refreshSelector);
@@ -97,15 +105,18 @@ export async function crawlSiteData(config) {
       capturedAt: new Date().toISOString(),
       lineCount: normalizedLines.length,
       previewLines: normalizedLines.slice(0, 20),
-      lines: normalizedLines
+      lines: normalizedLines,
+      browserState: { browser, context, page }
     };
   } catch (error) {
+    // 에러 발생 시에만 브라우저를 닫고 던짐
+    await context.close().catch(() => {});
+    await browser.close().catch(() => {});
+    
     if (error instanceof PipelineStepError) {
       throw error;
     }
     throw new PipelineStepError("SITE_CRAWL", "사이트 크롤링 중 예외가 발생했습니다.", error);
-  } finally {
-    await context.close();
-    await browser.close();
   }
+  // 주의: 성공 시 브라우저를 닫지 않고 반환합니다 (pipeline.js에서 통합 관리)
 }

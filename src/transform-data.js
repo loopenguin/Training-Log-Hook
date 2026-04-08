@@ -153,6 +153,7 @@ export function buildDiscordMessage(siteData, sheetData, rawDateFull, columnDate
   else bodyParts.push("- ");
 
   return {
-    discordText: `${header}\n\n${bodyParts.join("\n")}`
+    discordText: `${header}\n\n${bodyParts.join("\n")}`,
+    lists
   };
 }
