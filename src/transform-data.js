@@ -111,23 +111,23 @@ export function buildDiscordMessage(siteData, sheetData, rawDateFull, columnDate
   const EXCUSED_KEYWORDS = ["병가", "예비군", "공가", "출석인정", "휴가"];
 
   for (const stu of siteStudents) {
-    const sheetReason = sheetMapping[stu.name] || "";
+    const sheetStatus = sheetMapping[stu.name] || "";
 
-    if (stu.result === "지각") {
+    if (sheetStatus.includes("지각")) {
       lists.late.push(`- ${stu.name} (${stu.inTime})`);
     } 
-    else if (stu.result === "조퇴") {
+    else if (sheetStatus.includes("조퇴")) {
       lists.early.push(`- ${stu.name} (${stu.outTime})`);
     } 
-    else if (stu.result === "외출") {
+    else if (sheetStatus.includes("외출")) {
       lists.out.push(`- ${stu.name} (*입력 필요*)`);
     }
-    else if (stu.result === "결석") {
-      // 결석인데 시트에 인정사유가 있으면 공가-출석인정으로 이동
-      const hasExcused = EXCUSED_KEYWORDS.some(kw => sheetReason.includes(kw));
+    else {
+      // 공가/출석인정 또는 결석 등 특이사항 판단
+      const hasExcused = EXCUSED_KEYWORDS.some(kw => sheetStatus.includes(kw));
       if (hasExcused) {
-        lists.excused.push(`- ${stu.name} (${sheetReason})`);
-      } else {
+        lists.excused.push(`- ${stu.name} (${sheetStatus})`);
+      } else if (sheetStatus.includes("결석")) {
         lists.absent.push(`- ${stu.name} (*입력 필요*)`);
       }
     }
