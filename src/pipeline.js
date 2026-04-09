@@ -4,6 +4,7 @@ import { normalizeError } from "./errors.js";
 import { fetchSheetData } from "./fetch-sheet.js";
 import { parseSiteDate, buildDiscordMessage } from "./transform-data.js";
 import { isHoliday } from "./holidays.js";
+import { submitSiteData } from "./submit-data.js";
 
 function getTodayKstDateString(timezone = "Asia/Seoul") {
   const date = new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
@@ -51,9 +52,11 @@ export async function runPipeline(config) {
 
   let siteData;
   let sheetData;
+  let browserState = null;
 
   try {
     siteData = await crawlSiteData(config);
+    browserState = siteData.browserState;
     
     // 사이트 크롤링 본문에서 이번 훈련일자 추출 및 시트탭/컬럼명 계산
     const { sheetTabName, columnDateName, rawDateFull } = parseSiteDate(siteData.lines);
@@ -64,7 +67,16 @@ export async function runPipeline(config) {
     sheetData = await fetchSheetData(config);
     
     const result = buildDiscordMessage(siteData, sheetData, rawDateFull, columnDateName);
-    const message = result.discordText;
+
+    // F4: 타겟 사이트 실제 폼 제출
+    const submitResult = await submitSiteData(config, browserState.page, result.lists);
+
+    // 메시지 조립: 헤더 → 확인 필요 대상 → 기입 로그 → 상세 출결 목록
+    const reviewSection = result.needsReview.length > 0
+      ? `\n\n[확인 필요 대상]\n${result.needsReview.join("\n")}`
+      : "";
+    const submitSection = `\n\n[타겟 사이트 기입 로그]\n${submitResult.message}`;
+    const message = `${result.header}${reviewSection}${submitSection}\n\n\`\`\`\n${result.bodyText}\n\`\`\``;
 
     if (!config.runtime.dryRun) {
       await sendDiscordMessage(config.discord.webhookUrl, message);
@@ -92,5 +104,10 @@ export async function runPipeline(config) {
     }
 
     throw normalized;
+  } finally {
+    if (browserState) {
+      await browserState.context.close().catch(() => {});
+      await browserState.browser.close().catch(() => {});
+    }
   }
 }

@@ -1,15 +1,26 @@
 import { PipelineStepError } from "./errors.js";
 
 export function parseSiteDate(lines) {
-  const combinedText = lines.join(" ");
-  const dateMatch = combinedText.match(/\d{4}-\d{2}-\d{2}/);
+  let rawDate = null;
+  const dateIdx = lines.indexOf("훈련일자");
   
-  if (!dateMatch) {
-    const preview = lines.slice(0, 10).join(" | ");
-    throw new PipelineStepError("DATA_TRANSFORM", `사이트 본문에서 날짜 포맷(YYYY-MM-DD)을 찾지 못했습니다. '출석정보 불러오기' 버튼 클릭 누락이거나 렌더링 지연 문제일 수 있습니다.\n[디버깅-초반 10줄] ${preview}`);
+  if (dateIdx !== -1 && dateIdx + 1 < lines.length) {
+    const nextToken = lines[dateIdx + 1];
+    if (nextToken.match(/\d{4}-\d{2}-\d{2}/)) {
+       rawDate = nextToken;
+    }
   }
-  
-  const rawDate = dateMatch[0];
+
+  // fallback
+  if (!rawDate) {
+    const combinedText = lines.join(" ");
+    const dateMatch = combinedText.match(/\d{4}-\d{2}-\d{2}/);
+    if (!dateMatch) {
+      const preview = lines.slice(0, 10).join(" | ");
+      throw new PipelineStepError("DATA_TRANSFORM", `사이트 본문에서 날짜 포맷(YYYY-MM-DD)을 찾지 못했습니다. '출석정보 불러오기' 버튼 클릭 누락이거나 렌더링 지연 문제일 수 있습니다.\n[디버깅-초반 10줄] ${preview}`);
+    }
+    rawDate = dateMatch[0];
+  }
 
   // "2026-04-07" -> "26년 4월" 및 "2026. 4. 7" 로 변환
   const [yyyy, mm, dd] = rawDate.split("-");
@@ -99,25 +110,40 @@ export function buildDiscordMessage(siteData, sheetData, rawDateFull, columnDate
 
   const EXCUSED_KEYWORDS = ["병가", "예비군", "공가", "출석인정", "휴가"];
 
-  for (const stu of siteStudents) {
-    const sheetReason = sheetMapping[stu.name] || "";
-
-    if (stu.result === "지각") {
-      lists.late.push(`- ${stu.name} (${stu.inTime})`);
-    } 
-    else if (stu.result === "조퇴") {
-      lists.early.push(`- ${stu.name} (${stu.outTime})`);
-    } 
-    else if (stu.result === "외출") {
-      lists.out.push(`- ${stu.name} (${sheetReason || "*입력 필요*"})`);
+  // 공가/출석인정 상태값에서 순수 사유만 추출 (예: 공가(병가) → 병가)
+  function extractExcusedReason(status) {
+    const parenMatch = status.match(/\(([^)]+)\)/);
+    if (parenMatch) return parenMatch[1].trim();
+    const REASON_PRIORITY = ["병가", "예비군", "휴가", "기타", "공가", "출석인정"];
+    for (const kw of REASON_PRIORITY) {
+      if (status.includes(kw)) return kw;
     }
-    else if (stu.result === "결석") {
-      // 결석인데 시트에 인정사유가 있으면 공가-출석인정으로 이동
-      const hasExcused = EXCUSED_KEYWORDS.some(kw => sheetReason.includes(kw));
+    return status.trim();
+  }
+
+  const needsReview = []; // (*확인 필요*) 대상자 이름 목록
+
+  for (const stu of siteStudents) {
+    const sheetStatus = sheetMapping[stu.name] || "";
+
+    if (sheetStatus.includes("지각")) {
+      lists.late.push(`- ${stu.name} (${stu.inTime})`);
+    }
+    else if (sheetStatus.includes("조퇴")) {
+      lists.early.push(`- ${stu.name} (${stu.outTime})`);
+    }
+    else if (sheetStatus.includes("외출")) {
+      lists.out.push(`- ${stu.name} (*확인 필요*)`);
+      needsReview.push(stu.name);
+    }
+    else {
+      const hasExcused = EXCUSED_KEYWORDS.some(kw => sheetStatus.includes(kw));
       if (hasExcused) {
-        lists.excused.push(`- ${stu.name} (${sheetReason})`);
-      } else {
-        lists.absent.push(`- ${stu.name} (${sheetReason || "*입력 필요*"})`);
+        const reason = extractExcusedReason(sheetStatus);
+        lists.excused.push(`- ${stu.name} (${reason})`);
+      } else if (sheetStatus.includes("결석")) {
+        lists.absent.push(`- ${stu.name} (*확인 필요*)`);
+        needsReview.push(stu.name);
       }
     }
   }
@@ -131,28 +157,31 @@ export function buildDiscordMessage(siteData, sheetData, rawDateFull, columnDate
   const header = `[SUCCESS] ${yyyy.substring(2)}년 ${parseInt(mm)}월 ${parseInt(dd)}일 ${dayStr}요일 훈련일지 자동화 실행 완료\n실행 시각(Asia/Seoul): ${new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`;
 
   const bodyParts = [];
-  
+
   bodyParts.push(`1. 지각 (${lists.late.length}명)`);
   if (lists.late.length > 0) bodyParts.push(lists.late.join("\n"));
   else bodyParts.push("- ");
-  
+
   bodyParts.push(`\n2. 결석 (${lists.absent.length}명)`);
   if (lists.absent.length > 0) bodyParts.push(lists.absent.join("\n"));
   else bodyParts.push("- ");
-  
+
   bodyParts.push(`\n3. 공가-출석인정 (${lists.excused.length}명)`);
   if (lists.excused.length > 0) bodyParts.push(lists.excused.join("\n"));
   else bodyParts.push("- ");
-  
+
   bodyParts.push(`\n4. 외출 (${lists.out.length}명)`);
   if (lists.out.length > 0) bodyParts.push(lists.out.join("\n"));
   else bodyParts.push("- ");
-  
+
   bodyParts.push(`\n5. 조퇴 (${lists.early.length}명)`);
   if (lists.early.length > 0) bodyParts.push(lists.early.join("\n"));
   else bodyParts.push("- ");
 
   return {
-    discordText: `${header}\n\n${bodyParts.join("\n")}`
+    header,
+    bodyText: bodyParts.join("\n"),
+    lists,
+    needsReview
   };
 }

@@ -2,8 +2,9 @@ name: training-journal-automation
 
 on:
   schedule:
-    # 매주 월요일~금요일 요일 제한 (1-5 = Mon-Fri)
-    # KST 기준 오후 17:30 (UTC 기준 08:30)
+    # 매주 월~금 KST 17:30 실행 (UTC 08:30)
+    # 토·일은 cron 1-5 설정으로 자동 제외
+    # 공휴일은 src/holidays.js에 등록된 날짜를 파이프라인(isHoliday)에서 스킵 처리
     - cron: '30 8 * * 1-5'
   workflow_dispatch:
 
@@ -42,3 +43,4 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TIMEZONE: Asia/Seoul
+          DRY_RUN: "false"

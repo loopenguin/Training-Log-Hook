@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
+    ],
+    "deny": [
+      "WebSearch",
+      "WebFetch"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \".claude/hooks/gemini-router.js\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \".claude/hooks/agent-guard.js\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \".claude/hooks/post-task-check.js\""
+          }
+        ]
+      }
+    ]
+  }
+}

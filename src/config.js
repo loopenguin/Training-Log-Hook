@@ -16,7 +16,9 @@ const DEFAULT_SELECTORS = {
   submitSelector:
     "button[type='submit'], input[type='submit'], button:has-text('로그인'), button:has-text('Login')",
   refreshSelector:
-    "button:has-text('갱신'), button:has-text('새로고침'), button:has-text('출석정보 불러오기'), button:has-text('Refresh'), [data-action='refresh']"
+    "button:has-text('갱신'), button:has-text('새로고침'), button:has-text('출석정보 불러오기'), button:has-text('Refresh'), [data-action='refresh']",
+  textareaSelector: "textarea[name='remark']",
+  saveBtnSelector: "button[type='submit']:has-text('저장')"
 };
 
 function assertRequiredEnv() {
@@ -89,7 +91,9 @@ export function loadConfig() {
         idSelector: process.env.TARGET_SITE_ID_SELECTOR || DEFAULT_SELECTORS.idSelector,
         pwSelector: process.env.TARGET_SITE_PW_SELECTOR || DEFAULT_SELECTORS.pwSelector,
         submitSelector: process.env.TARGET_SITE_SUBMIT_SELECTOR || DEFAULT_SELECTORS.submitSelector,
-        refreshSelector: process.env.TARGET_SITE_REFRESH_SELECTOR || DEFAULT_SELECTORS.refreshSelector
+        refreshSelector: process.env.TARGET_SITE_REFRESH_SELECTOR || DEFAULT_SELECTORS.refreshSelector,
+        textareaSelector: process.env.TARGET_SITE_TEXTAREA_SELECTOR || DEFAULT_SELECTORS.textareaSelector,
+        saveBtnSelector: process.env.TARGET_SITE_SAVE_BTN_SELECTOR || DEFAULT_SELECTORS.saveBtnSelector
       }
     },
     google: {
@@ -102,6 +106,7 @@ export function loadConfig() {
     },
     runtime: {
       timezone: tz,
+      todayKst: getTodayKstDateString(tz),
       dryRun: parseBoolean(process.env.DRY_RUN, false),
       headless: parseBoolean(process.env.PLAYWRIGHT_HEADLESS, true)
     }

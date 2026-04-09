@@ -1,0 +1,67 @@
+import { chromium } from "playwright";
+import { PipelineStepError } from "./errors.js";
+
+async function fillIfVisible(page, selector, value, label) {
+  try {
+    const element = page.locator(selector).first();
+    await element.waitFor({ state: "visible", timeout: 10000 });
+    await element.fill(value);
+  } catch (error) {
+    throw new PipelineStepError("SITE_SUBMIT", `${label} 폼 요소를 찾거나 입력할 수 없습니다. selector=${selector}`);
+  }
+}
+
+export async function submitSiteData(config, page, lists) {
+  let submissionResult = { success: false, message: "" };
+
+  try {
+    // 1. 입력 데이터 조립 ((기존 2번 과정이었던 링크 이동 로직은 crawl-site.js에서 선행 완료됨))
+    let textToSubmit = `1. 지각 (${lists.late.length}명)\n`;
+    textToSubmit += lists.late.length > 0 ? lists.late.join("\n") + "\n\n" : "- \n\n";
+    
+    textToSubmit += `2. 결석 (${lists.absent.length}명)\n`;
+    textToSubmit += lists.absent.length > 0 ? lists.absent.join("\n") + "\n\n" : "- \n\n";
+    
+    textToSubmit += `3. 공가-출석인정 (${lists.excused.length}명)\n`;
+    textToSubmit += lists.excused.length > 0 ? lists.excused.join("\n") + "\n\n" : "- \n\n";
+    
+    textToSubmit += `4. 외출 (${lists.out.length}명)\n`;
+    textToSubmit += lists.out.length > 0 ? lists.out.join("\n") + "\n\n" : "- \n\n";
+    
+    textToSubmit += `5. 조퇴 (${lists.early.length}명)\n`;
+    textToSubmit += lists.early.length > 0 ? lists.early.join("\n") : "- ";
+
+    // 4. 입력 필드 탐색 및 값 입력
+    const textSelector = config.targetSite.selectors.textareaSelector;
+    await fillIfVisible(page, textSelector, textToSubmit, "훈련일지 입력란");
+
+    // 5. 저장 버튼 클릭 (Dry-Run 체크)
+    const saveSelector = config.targetSite.selectors.saveBtnSelector;
+    
+    if (config.runtime.dryRun) {
+      console.log(`[DRY_RUN] 자동화 제출(저장) 방지 활성화 됨. 저장 버튼(${saveSelector}) 클릭을 생략합니다.`);
+      submissionResult.message = "Dry-Run 모드로 인해 사이트 저장을 스킵했습니다.";
+      submissionResult.success = true;
+      await page.waitForTimeout(1500); // UI 확인용 대기
+    } else {
+      console.log(`[SUBMIT] 실 운영 페이지 저장 로직 실행 중...`);
+      const saveBtn = page.locator(saveSelector).first();
+      await saveBtn.waitFor({ state: "visible", timeout: 10000 });
+      await saveBtn.click();
+      
+      // 결과 알림 모달 등이 있는지 확인
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(2000);
+      
+      submissionResult.success = true;
+      submissionResult.message = "사이트 직접 제출 성공";
+    }
+
+  } catch (error) {
+    // 예외는 pipeline.js 로 던짐
+    if (error instanceof PipelineStepError) throw error;
+    throw new PipelineStepError("SITE_SUBMIT", "사이트 데이터 기입 및 제출 중 오류 발생", error);
+  }
+
+  return submissionResult;
+}

@@ -35,6 +35,12 @@ export async function crawlSiteData(config) {
   });
   const page = await context.newPage();
 
+  // 버튼 클릭 시 나타나는 alert나 confirm(예: "데이터를 불러오시겠습니까?")을 자동으로 수락합니다.
+  page.on("dialog", async (dialog) => {
+    console.log(`[DIALOG] ${dialog.type()} message: ${dialog.message()}`);
+    await dialog.accept();
+  });
+
   try {
     await page.goto(config.targetSite.url, { waitUntil: "networkidle", timeout: 60000 });
 
@@ -72,19 +78,33 @@ export async function crawlSiteData(config) {
     await page.waitForTimeout(5000);
     await page.waitForLoadState("networkidle");
 
-    // (필살기 2) 로그인을 무사히 마쳤으나, 엉뚱한 대시보드로 떨어졌다면 진짜 목표 사이트로 한 번 더 강제 재진입
-    // url에 쿼리 파라미터가 붙을 수 있으므로 startsWith/includes 사용
-    if (!page.url().includes("attendance-manage")) {
-       await page.goto(config.targetSite.url, { waitUntil: "networkidle", timeout: 30000 });
+    // 2. 훈련일지(diary) 페이지로 이동 (중요: 크롤링과 등록 모두 이 페이지에서 진행)
+    const baseTargetUrl = config.targetSite.url;
+    let diaryUrl = baseTargetUrl;
+    if (baseTargetUrl.includes("attendance-manage")) {
+       diaryUrl = baseTargetUrl.replace("attendance-manage", `diary/${config.runtime.todayKst}`);
+    } else if (!page.url().includes("diary")) {
+       diaryUrl = baseTargetUrl; // fallbacks
+    }
+
+    if (!page.url().includes("diary")) {
+       await page.goto(diaryUrl, { waitUntil: "networkidle", timeout: 30000 });
+       await page.waitForTimeout(2000);
     }
 
     const didClickRefresh = await clickIfExists(page, config.targetSite.selectors.refreshSelector);
     if (didClickRefresh) {
-      // 출석정보 불러오기 버튼을 누른 후, API 통신 및 화면 렌더링이 완료될 때까지 대기
       await page.waitForLoadState("networkidle", { timeout: 30000 });
-      await page.waitForTimeout(3000); 
+      // 명단이 전부 로딩될 때까지 (최대 10초) 일정 주기로 '훈련정보' 키워드를 확인하며 대기합니다.
+      for (let i = 0; i < 10; i++) {
+        await page.waitForTimeout(1000);
+        const currentBody = await page.locator("body").innerText();
+        if (currentBody.includes("훈련정보") && currentBody.includes("결과")) {
+           break;
+        }
+      }
     } else {
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(3000);
     }
 
     const bodyText = await page.locator("body").innerText();
@@ -97,15 +117,18 @@ export async function crawlSiteData(config) {
       capturedAt: new Date().toISOString(),
       lineCount: normalizedLines.length,
       previewLines: normalizedLines.slice(0, 20),
-      lines: normalizedLines
+      lines: normalizedLines,
+      browserState: { browser, context, page }
     };
   } catch (error) {
+    // 에러 발생 시에만 브라우저를 닫고 던짐
+    await context.close().catch(() => {});
+    await browser.close().catch(() => {});
+    
     if (error instanceof PipelineStepError) {
       throw error;
     }
     throw new PipelineStepError("SITE_CRAWL", "사이트 크롤링 중 예외가 발생했습니다.", error);
-  } finally {
-    await context.close();
-    await browser.close();
   }
+  // 주의: 성공 시 브라우저를 닫지 않고 반환합니다 (pipeline.js에서 통합 관리)
 }
