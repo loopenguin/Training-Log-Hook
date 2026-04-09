@@ -16,17 +16,20 @@ export async function submitSiteData(config, page, lists) {
 
   try {
     // 1. 입력 데이터 조립 ((기존 2번 과정이었던 링크 이동 로직은 crawl-site.js에서 선행 완료됨))
-    // lists 객체에는 late, absent, excused, out, early 배열이 존재합니다.
-    let textToSubmit = `금일 훈련 특이사항 보고:\n\n`;
-    if (lists.late.length > 0) textToSubmit += `[지각]\n${lists.late.join("\\n")}\n\n`;
-    if (lists.absent.length > 0) textToSubmit += `[결석]\n${lists.absent.join("\\n")}\n\n`;
-    if (lists.excused.length > 0) textToSubmit += `[공가/출석인정]\n${lists.excused.join("\\n")}\n\n`;
-    if (lists.out.length > 0) textToSubmit += `[외출]\n${lists.out.join("\\n")}\n\n`;
-    if (lists.early.length > 0) textToSubmit += `[조퇴]\n${lists.early.join("\\n")}\n\n`;
+    let textToSubmit = `1. 지각 (${lists.late.length}명)\n`;
+    textToSubmit += lists.late.length > 0 ? lists.late.join("\n") + "\n\n" : "- \n\n";
     
-    if (Object.values(lists).every(arr => arr.length === 0)) {
-        textToSubmit += `특이사항 (지각/결석 등) 인원 없음. 전원 정상 출결 완료.`;
-    }
+    textToSubmit += `2. 결석 (${lists.absent.length}명)\n`;
+    textToSubmit += lists.absent.length > 0 ? lists.absent.join("\n") + "\n\n" : "- \n\n";
+    
+    textToSubmit += `3. 공가-출석인정 (${lists.excused.length}명)\n`;
+    textToSubmit += lists.excused.length > 0 ? lists.excused.join("\n") + "\n\n" : "- \n\n";
+    
+    textToSubmit += `4. 외출 (${lists.out.length}명)\n`;
+    textToSubmit += lists.out.length > 0 ? lists.out.join("\n") + "\n\n" : "- \n\n";
+    
+    textToSubmit += `5. 조퇴 (${lists.early.length}명)\n`;
+    textToSubmit += lists.early.length > 0 ? lists.early.join("\n") : "- ";
 
     // 4. 입력 필드 탐색 및 값 입력
     const textSelector = config.targetSite.selectors.textareaSelector;

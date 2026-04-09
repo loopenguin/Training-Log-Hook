@@ -1,15 +1,26 @@
 import { PipelineStepError } from "./errors.js";
 
 export function parseSiteDate(lines) {
-  const combinedText = lines.join(" ");
-  const dateMatch = combinedText.match(/\d{4}-\d{2}-\d{2}/);
+  let rawDate = null;
+  const dateIdx = lines.indexOf("훈련일자");
   
-  if (!dateMatch) {
-    const preview = lines.slice(0, 10).join(" | ");
-    throw new PipelineStepError("DATA_TRANSFORM", `사이트 본문에서 날짜 포맷(YYYY-MM-DD)을 찾지 못했습니다. '출석정보 불러오기' 버튼 클릭 누락이거나 렌더링 지연 문제일 수 있습니다.\n[디버깅-초반 10줄] ${preview}`);
+  if (dateIdx !== -1 && dateIdx + 1 < lines.length) {
+    const nextToken = lines[dateIdx + 1];
+    if (nextToken.match(/\d{4}-\d{2}-\d{2}/)) {
+       rawDate = nextToken;
+    }
   }
-  
-  const rawDate = dateMatch[0];
+
+  // fallback
+  if (!rawDate) {
+    const combinedText = lines.join(" ");
+    const dateMatch = combinedText.match(/\d{4}-\d{2}-\d{2}/);
+    if (!dateMatch) {
+      const preview = lines.slice(0, 10).join(" | ");
+      throw new PipelineStepError("DATA_TRANSFORM", `사이트 본문에서 날짜 포맷(YYYY-MM-DD)을 찾지 못했습니다. '출석정보 불러오기' 버튼 클릭 누락이거나 렌더링 지연 문제일 수 있습니다.\n[디버깅-초반 10줄] ${preview}`);
+    }
+    rawDate = dateMatch[0];
+  }
 
   // "2026-04-07" -> "26년 4월" 및 "2026. 4. 7" 로 변환
   const [yyyy, mm, dd] = rawDate.split("-");
@@ -109,7 +120,7 @@ export function buildDiscordMessage(siteData, sheetData, rawDateFull, columnDate
       lists.early.push(`- ${stu.name} (${stu.outTime})`);
     } 
     else if (stu.result === "외출") {
-      lists.out.push(`- ${stu.name} (${sheetReason || "*입력 필요*"})`);
+      lists.out.push(`- ${stu.name} (*입력 필요*)`);
     }
     else if (stu.result === "결석") {
       // 결석인데 시트에 인정사유가 있으면 공가-출석인정으로 이동
@@ -117,7 +128,7 @@ export function buildDiscordMessage(siteData, sheetData, rawDateFull, columnDate
       if (hasExcused) {
         lists.excused.push(`- ${stu.name} (${sheetReason})`);
       } else {
-        lists.absent.push(`- ${stu.name} (${sheetReason || "*입력 필요*"})`);
+        lists.absent.push(`- ${stu.name} (*입력 필요*)`);
       }
     }
   }
