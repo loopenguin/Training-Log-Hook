@@ -67,11 +67,16 @@ export async function runPipeline(config) {
     sheetData = await fetchSheetData(config);
     
     const result = buildDiscordMessage(siteData, sheetData, rawDateFull, columnDateName);
-    let message = result.discordText;
 
     // F4: 타겟 사이트 실제 폼 제출
     const submitResult = await submitSiteData(config, browserState.page, result.lists);
-    message += `\n\n[타겟 사이트 기입 로그]\n${submitResult.message}`;
+
+    // 메시지 조립: 헤더 → 확인 필요 대상 → 기입 로그 → 상세 출결 목록
+    const reviewSection = result.needsReview.length > 0
+      ? `\n\n[확인 필요 대상]\n${result.needsReview.join("\n")}`
+      : "";
+    const submitSection = `\n\n[타겟 사이트 기입 로그]\n${submitResult.message}`;
+    const message = `${result.header}${reviewSection}${submitSection}\n\n\`\`\`\n${result.bodyText}\n\`\`\``;
 
     if (!config.runtime.dryRun) {
       await sendDiscordMessage(config.discord.webhookUrl, message);
