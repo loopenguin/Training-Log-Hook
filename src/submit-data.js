@@ -54,6 +54,7 @@ export async function submitSiteData(config, page, lists) {
       submissionResult.message = "사이트 직접 제출 성공";
     }
 
+  } catch (error) {
     // 예외는 pipeline.js 로 던짐
     if (error instanceof PipelineStepError) throw error;
     throw new PipelineStepError("SITE_SUBMIT", "사이트 데이터 기입 및 제출 중 오류 발생", error);
