@@ -1,0 +1,29 @@
+name: training-journal-trigger
+
+on:
+  schedule:
+    # [TEST] 자동 배포 검증용 임시 스케줄 (KST 기준)
+    # 14:00 KST (UTC 05:00)
+    - cron: '0 5 * * *'
+    # 14:05 KST (UTC 05:05)
+    - cron: '5 5 * * *'
+    # 14:10 KST (UTC 05:10)
+    - cron: '10 5 * * *'
+    # TODO: 테스트 완료 후 아래로 복원
+    # - cron: '30 8 * * 1-5'  # 매주 월~금 KST 17:30
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Trigger main pipeline
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            https://api.github.com/repos/loopenguin/Training-Log-Hook/actions/workflows/training-journal-automation.yml/dispatches \
+            -d '{"ref":"main"}'
