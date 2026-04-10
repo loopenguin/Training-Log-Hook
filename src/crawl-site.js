@@ -24,24 +24,31 @@ async function clickIfExists(page, selector) {
     await button.click();
     return true;
   } catch (error) {
-    return false;
+    if (error.name === "TimeoutError" || error.message?.includes("Timeout")) {
+      return false;
+    }
+    throw error;
   }
 }
 
 export async function crawlSiteData(config) {
-  const browser = await chromium.launch({ headless: config.runtime.headless });
-  const context = await browser.newContext({
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-  });
-  const page = await context.newPage();
+  let browser = null;
+  let context = null;
+  let page = null;
 
   // 버튼 클릭 시 나타나는 alert나 confirm(예: "데이터를 불러오시겠습니까?")을 자동으로 수락합니다.
-  page.on("dialog", async (dialog) => {
-    console.log(`[DIALOG] ${dialog.type()} message: ${dialog.message()}`);
-    await dialog.accept();
-  });
-
   try {
+    browser = await chromium.launch({ headless: config.runtime.headless });
+    context = await browser.newContext({
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+    });
+    page = await context.newPage();
+
+    page.on("dialog", async (dialog) => {
+      console.log(`[DIALOG] ${dialog.type()} message: ${dialog.message()}`);
+      await dialog.accept();
+    });
+
     await page.goto(config.targetSite.url, { waitUntil: "networkidle", timeout: 60000 });
 
     // (필살기 1) 타겟 주소 접속 후 튕기거나 로그인 창이 당장 안 보이면 '로그인'이라고 적힌 모든 버튼을 뒤져서 눈에 보이는 것을 강제 클릭
@@ -122,8 +129,12 @@ export async function crawlSiteData(config) {
     };
   } catch (error) {
     // 에러 발생 시에만 브라우저를 닫고 던짐
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
+    if (context) {
+      await context.close().catch(() => {});
+    }
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
     
     if (error instanceof PipelineStepError) {
       throw error;

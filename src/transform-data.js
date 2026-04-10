@@ -14,12 +14,16 @@ export function parseSiteDate(lines) {
   // fallback
   if (!rawDate) {
     const combinedText = lines.join(" ");
-    const dateMatch = combinedText.match(/\d{4}-\d{2}-\d{2}/);
-    if (!dateMatch) {
+    const allDates = [...combinedText.matchAll(/\d{4}-\d{2}-\d{2}/g)].map((m) => m[0]);
+    const trainingDate = allDates.find((d) => {
+      const year = parseInt(d.substring(0, 4), 10);
+      return year >= 2020 && year <= 2035;
+    });
+    if (!trainingDate) {
       const preview = lines.slice(0, 10).join(" | ");
       throw new PipelineStepError("DATA_TRANSFORM", `사이트 본문에서 날짜 포맷(YYYY-MM-DD)을 찾지 못했습니다. '출석정보 불러오기' 버튼 클릭 누락이거나 렌더링 지연 문제일 수 있습니다.\n[디버깅-초반 10줄] ${preview}`);
     }
-    rawDate = dateMatch[0];
+    rawDate = trainingDate;
   }
 
   // "2026-04-07" -> "26년 4월" 및 "2026. 4. 7" 로 변환
@@ -49,6 +53,13 @@ export function buildDiscordMessage(siteData, sheetData, rawDateFull, columnDate
     throw new PipelineStepError(
       "DATA_TRANSFORM", 
       `사이트 본문에서 학생 출결 영역(결과 ~ 훈련정보)을 특정할 수 없습니다. \n[결과 idx=${resultIdx}, 훈련정보 idx=${endIdx}]\n\n[디버깅-본문 덤프(일부)]\n${debugStr.substring(0, 1000)}...`
+    );
+  }
+
+  if (resultIdx >= endIdx) {
+    throw new PipelineStepError(
+      "DATA_TRANSFORM",
+      `학생 블록 경계가 비정상입니다. 결과 idx(${resultIdx})는 훈련정보 idx(${endIdx})보다 앞에 있어야 합니다.`
     );
   }
 

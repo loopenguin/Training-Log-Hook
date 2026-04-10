@@ -57,7 +57,7 @@ export async function fetchSheetData(config) {
 
     return {
       fetchedAt: new Date().toISOString(),
-      range: config.google.range,
+      range: targetRange,
       rowCount: rows.length,
       recordCount: records.length,
       previewRecords: records.slice(0, 5),

@@ -62,9 +62,15 @@ export async function runPipeline(config) {
     const { sheetTabName, columnDateName, rawDateFull } = parseSiteDate(siteData.lines);
     
     // 목표 시트의 Range를 오늘 날짜의 탭(예: "26년 4월!A:Z")으로 강제 오버라이딩
-    config.google.range = `${sheetTabName}!A:Z`;
+    const effectiveRange = `${sheetTabName}!A:Z`;
 
-    sheetData = await fetchSheetData(config);
+    sheetData = await fetchSheetData({
+      ...config,
+      google: {
+        ...config.google,
+        range: effectiveRange
+      }
+    });
     
     const result = buildDiscordMessage(siteData, sheetData, rawDateFull, columnDateName);
 
@@ -79,7 +85,14 @@ export async function runPipeline(config) {
     const message = `${result.header}${reviewSection}${submitSection}\n\n\`\`\`\n${result.bodyText}\n\`\`\``;
 
     if (!config.runtime.dryRun) {
-      await sendDiscordMessage(config.discord.webhookUrl, message);
+      try {
+        await sendDiscordMessage(config.discord.webhookUrl, message);
+      } catch (notifyErr) {
+        console.warn(
+          "[WARN] Discord 성공 알림 전송 실패 (제출은 완료됨):",
+          notifyErr?.message ?? notifyErr
+        );
+      }
     } else {
       console.log("[DRY_RUN] Discord 전송 생략");
       console.log(message);

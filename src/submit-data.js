@@ -1,4 +1,3 @@
-import { chromium } from "playwright";
 import { PipelineStepError } from "./errors.js";
 
 async function fillIfVisible(page, selector, value, label) {
