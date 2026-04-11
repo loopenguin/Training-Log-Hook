@@ -1,16 +1,6 @@
 name: training-journal-automation
 
 on:
-  schedule:
-    # [TEST] 자동 배포 검증용 임시 스케줄 (KST 기준)
-    # 11:50 KST (UTC 02:50)
-    - cron: '50 2 * * *'
-    # 11:55 KST (UTC 02:55)
-    - cron: '55 2 * * *'
-    # 12:00 KST (UTC 03:00)
-    - cron: '0 3 * * *'
-    # TODO: 테스트 완료 후 아래로 복원
-    # - cron: '30 8 * * 1-5'  # 매주 월~금 KST 17:30
   workflow_dispatch:
 
 jobs:
