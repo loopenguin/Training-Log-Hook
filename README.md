@@ -1,4 +1,4 @@
-# 훈련일지 자동화
+# 훈련일지 자동화 V1.1.0
 
 - Playwright + Google Sheets + Discord Webhook 기반 자동 실행 파이프라인입니다.
 - 사용법은 아래를 참조해 주세요.
