@@ -28,7 +28,10 @@ export async function submitSiteData(config, page, lists) {
     textToSubmit += lists.out.length > 0 ? lists.out.join("\n") + "\n\n" : "- \n\n";
     
     textToSubmit += `5. 조퇴 (${lists.early.length}명)\n`;
-    textToSubmit += lists.early.length > 0 ? lists.early.join("\n") : "- ";
+    textToSubmit += lists.early.length > 0 ? lists.early.join("\n") + "\n\n" : "- \n\n";
+
+    textToSubmit += `6. 수료 (${lists.graduated.length}명)\n`;
+    textToSubmit += lists.graduated.length > 0 ? lists.graduated.join("\n") : "- ";
 
     // 4. 입력 필드 탐색 및 값 입력
     const textSelector = config.targetSite.selectors.textareaSelector;

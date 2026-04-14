@@ -8,7 +8,7 @@
   - Must NOT directly edit source files — delegate to Codex
   - Must NOT use `Agent tool (subagent_type: "general-purpose")` for source edits
   - Must NOT use WebSearch/WebFetch — delegate to gemini-cli
-- **CLI**: `claude -p "[task]"`
+- **CLI**: `claude -p "[task]" --model claude-opus-4-6`
 
 ---
 

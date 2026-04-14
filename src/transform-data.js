@@ -116,10 +116,12 @@ export function buildDiscordMessage(siteData, sheetData, rawDateFull, columnDate
     absent: [],     // 결석
     excused: [],    // 공가-출석인정
     out: [],        // 외출
-    early: []       // 조퇴
+    early: [],      // 조퇴
+    graduated: []   // 수료
   };
 
   const EXCUSED_KEYWORDS = ["병가", "예비군", "공가", "출석인정", "휴가"];
+  const GRADUATED_NAMES = ["도승연"];
 
   // 공가/출석인정 상태값에서 순수 사유만 추출 (예: 공가(병가) → 병가)
   function extractExcusedReason(status) {
@@ -136,6 +138,10 @@ export function buildDiscordMessage(siteData, sheetData, rawDateFull, columnDate
 
   for (const stu of siteStudents) {
     const sheetStatus = sheetMapping[stu.name] || "";
+
+    if (GRADUATED_NAMES.includes(stu.name)) {
+      lists.graduated.push("- " + stu.name + " (조기수료)");
+    }
 
     if (sheetStatus.includes("지각")) {
       lists.late.push(`- ${stu.name} (${stu.inTime})`);
@@ -187,6 +193,10 @@ export function buildDiscordMessage(siteData, sheetData, rawDateFull, columnDate
 
   bodyParts.push(`\n5. 조퇴 (${lists.early.length}명)`);
   if (lists.early.length > 0) bodyParts.push(lists.early.join("\n"));
+  else bodyParts.push("- ");
+
+  bodyParts.push("\n6. 수료 (" + lists.graduated.length + "명)");
+  if (lists.graduated.length > 0) bodyParts.push(lists.graduated.join("\n"));
   else bodyParts.push("- ");
 
   return {
