@@ -9,3 +9,5 @@
 | 2026-04-10 | codex | code-review 이슈 수정 | `pipeline.js`, `transform-data.js`, `crawl-site.js`, `submit-data.js`, `discord.js`, `fetch-sheet.js` | 🔴 치명 2건 + 🟠 주의 6건 + 🟡 개선 3건 수정 완료 |
 | 2026-04-10 | antigravity | Fix scheduled workflow timing issue | `.github/workflows/trigger.yml`, `.github/workflows/training-journal-automation.yml` | GHA 내부 dispatch 방식으로 스케줄 안정화. trigger.yml KST 14:10/17:30 (월~금) 운영 크론 설정. training-journal-automation.yml은 workflow_dispatch 전용으로 분리 |
 | 2026-04-14 | antigravity | 수료 카테고리 추가 및 v1.1 버전 갱신 | `src/transform-data.js`, `src/submit-data.js`, `README.md`, `package.json` | GRADUATED_NAMES 상수로 수료자 분류, 훈련일지 '6. 수료' 항목 추가, v1.1.0 릴리즈 |
+| 2026-04-20 | antigravity | 외부 크론 발화 안정화 (cron-job.org) | `cron-job.org 설정 (외부)` | cron-job.org에 잡 2개 생성 — Training Journal 14:10 KST (UTC 05:10), 17:30 KST (UTC 08:30), 월~금. GitHub API workflow_dispatch 호출로 GHA 스케줄 지연 문제 우회 |
+

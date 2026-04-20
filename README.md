@@ -8,30 +8,33 @@
 | 항목 | 내용 |
 |------|------|
 | 프로젝트명 | `training-journal-automation` |
-| 실행 방식 | Node.js 스크립트 + GitHub Actions |
+| 버전 | `v1.2.0` |
+| 실행 방식 | Node.js 스크립트 + GitHub Actions (외부 크론: cron-job.org) |
 | 주요 기능 | LMS 출결 크롤링 → 구글 시트 연동 → 출결 분류 → 훈련일지 자동 기입 → 디스코드 보고 |
-| 스케줄 | 매일 KST 17:30, 월~금 (`cron: 30 8 * * 1-5`) |
+| 스케줄 | KST 14:10 / 17:30, 월~금 (외부 크론 발화 → GitHub API dispatch) |
 | 공휴일 처리 | `src/holidays.js` 등록 날짜 자동 스킵 |
 
 ## 구조
 
 ```text
 .
-├── .github/workflows/training-journal-automation.yml // GitHub Actions 자동 실행 스케줄러 설정
-├── src/                                              // 비즈니스 로직 최상단 폴더
-│   ├── index.js                                      // 프로세스 진입점 (Entry Point)
-│   ├── pipeline.js                                   // 전체 자동화 흐름 통제 및 순차 실행 제어
-│   ├── config.js                                     // 환경 변수(Secrets) 객체 매핑 및 검증
-│   ├── crawl-site.js                                 // Playwright 기반 LMS 로그인·크롤링·브라우저 세션 유지
-│   ├── submit-data.js                                // 크롤링된 페이지에 출결 내용 기입 및 저장 버튼 클릭
-│   ├── fetch-sheet.js                                // API 연동을 통한 구글 시트 데이터 읽기
-│   ├── transform-data.js                             // 데이터를 요구 수식/형식에 맞춰 변환 및 분류
-│   ├── holidays.js                                   // 공휴일 날짜 목록 및 스킵 판단 함수
-│   ├── discord.js                                    // 디스코드 Webhook 메시지 조립 및 발송
-│   └── errors.js                                     // 커스텀 에러 정의 (발생 구역 상세 추적용)
-├── .env.example                                      // 로컬 테스트용 환경 변수 템플릿
-├── package.json                                      // 필수 라이브러리 설치 목록 및 프로젝트 구성
-└── docs/                                             // 기획서(spec.md) 및 사용자 가이드 보관 폴더
+├── .github/
+│   └── workflows/
+│       └── training-journal-automation.yml  // GitHub Actions — workflow_dispatch 전용 (외부 크론이 호출)
+├── src/                                      // 비즈니스 로직 최상단 폴더
+│   ├── index.js                              // 프로세스 진입점 (Entry Point)
+│   ├── pipeline.js                           // 전체 자동화 흐름 통제 및 순차 실행 제어
+│   ├── config.js                             // 환경 변수(Secrets) 객체 매핑 및 검증
+│   ├── crawl-site.js                         // Playwright 기반 LMS 로그인·크롤링·브라우저 세션 유지
+│   ├── submit-data.js                        // 크롤링된 페이지에 출결 내용 기입 및 저장 버튼 클릭
+│   ├── fetch-sheet.js                        // API 연동을 통한 구글 시트 데이터 읽기
+│   ├── transform-data.js                     // 데이터를 요구 수식/형식에 맞춰 변환 및 분류
+│   ├── holidays.js                           // 공휴일 날짜 목록 및 스킵 판단 함수
+│   ├── discord.js                            // 디스코드 Webhook 메시지 조립 및 발송
+│   └── errors.js                             // 커스텀 에러 정의 (발생 구역 상세 추적용)
+├── .env.example                              // 로컬 테스트용 환경 변수 템플릿
+├── package.json                              // 필수 라이브러리 설치 목록 및 프로젝트 구성
+└── docs/                                     // 기획서(spec.md) 및 사용자 가이드 보관 폴더
 ```
 
 ## 로컬 실행
@@ -86,6 +89,22 @@
 **선택 (커스텀 Selector 필요 시):**
 - `TARGET_SITE_ID_SELECTOR`, `TARGET_SITE_PW_SELECTOR`
 - `TARGET_SITE_SUBMIT_SELECTOR`, `TARGET_SITE_REFRESH_SELECTOR`
+
+## 스케줄 발화 구조 (v1.2.0~)
+
+```
+cron-job.org (외부 크론, 정시 보장)
+  └─ POST /repos/loopenguin/Training-Log-Hook/actions/workflows/training-journal-automation.yml/dispatches
+       └─ training-journal-automation.yml 실행
+            └─ 파이프라인 → LMS 출결 기입 → Discord 보고
+```
+
+| 잡 이름 | 발화 시각 (KST) | UTC cron |
+|---------|----------------|----------|
+| Training Journal - 14:10 KST | 매일 14:10 (월~금) | `10 5 * * 1-5` |
+| Training Journal - 17:30 KST | 매일 17:30 (월~금) | `30 8 * * 1-5` |
+
+> GHA 내장 cron은 트래픽에 따라 수십 분 지연될 수 있어 외부 크론으로 대체되었습니다.
 
 ---
 
@@ -260,4 +279,21 @@
 
 ---
 
-*문서 작성: antigravity | 최종 수정: 2026-04-14 | v1.1*
+## 패치노트
+
+### v1.2.0 (2026-04-20)
+- **외부 크론 안정화**: GHA 내장 cron 대신 cron-job.org 외부 크론으로 발화 방식 전환
+  - KST 14:10 / 17:30 두 타임슬롯, 월~금 고정 발화
+  - GitHub API `workflow_dispatch` 직접 호출로 GHA 스케줄 지연 우회
+- **trigger.yml 제거**: 내부 dispatch 워크플로 삭제 (역할 이관 완료)
+
+### v1.1.0 (2026-04-14)
+- 수료 카테고리 추가 (GRADUATED_NAMES 상수, 디스코드 6번 항목)
+- 훈련일지 기입 포맷 조퇴 줄바꿈 수정
+
+### v1.0.0 (2026-04-08)
+- 초기 릴리즈: LMS 크롤링 + 구글 시트 연동 + 훈련일지 자동 기입 + Discord 보고
+
+---
+
+*문서 작성: antigravity | 최종 수정: 2026-04-20 | v1.2*
