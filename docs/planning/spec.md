@@ -5,9 +5,10 @@
 | 항목 | 내용 |
 |------|------|
 | **프로젝트명** | `training-journal-automation` |
-| **한 줄 설명** | 웹 훅 기반 훈련일지 자동화 구조 |
-| **앱 유형** | github action 기반 워크플로 |
-| **기술 스택** | Node.js / Playwright(UI 자동화) / Google API / GitHub Actions |
+| **버전** | `v1.2.0` |
+| **한 줄 설명** | 외부 크론 발화 기반 훈련일지 자동화 파이프라인 |
+| **앱 유형** | GitHub Actions 워크플로 (외부 크론 트리거) |
+| **기술 스택** | Node.js / Playwright(UI 자동화) / Google API / GitHub Actions / cron-job.org (외부 스케줄러) |
 | **하네스** | Harness L1 기반 (대변인 루프 + 3종 훅) |
 
 ## 2. 사용자 정의 (공통)
@@ -16,7 +17,7 @@
 |------|--------|
 | **주 사용자** | 훈련과정 강사 |
 | **사용 환경** | 주로 데스크톱 브라우저 사용 |
-| **핵심 시나리오** | 1. 서울 표준시 KST 오후 5시 30분(UTC 오전 8시 30분) 스케줄러 트리거 작동<br>2. 훈련 운영 사이트 자동 접속 및 구글 시트 데이터 수집/가공<br>3. 최종 목표: 사이트에 직접 출결/내용 정리하여 자동 기입(제출)<br>4. 디스코드 채널에는 처리 완료 결과 및 성공/장애 요약 알림 전송 |
+| **핵심 시나리오** | 1. cron-job.org 외부 크론이 KST 14:10 / 17:30 (월~금) 두 차례 GitHub API를 호출하여 워크플로를 발화<br>2. 훈련 운영 사이트 자동 접속 및 구글 시트 데이터 수집/가공<br>3. 최종 목표: 사이트에 직접 출결/내용 정리하여 자동 기입(제출)<br>4. 디스코드 채널에는 처리 완료 결과 및 성공/장애 요약 알림 전송 |
 
 ## 3. 디자인 참조 & 5. UI/UX 요구사항 (통합)
 
@@ -58,8 +59,12 @@
 ## 8. 데이터 흐름도
 
 ```
-[GitHub Actions 크론 트리거]
+[cron-job.org 외부 스케줄러] ← KST 14:10 / 17:30, 월~금
+         ↓  POST /actions/workflows/.../dispatches
+[GitHub Actions workflow_dispatch 트리거]
          ↓
+  [공휴일 체크 (holidays.js)] → 해당일 공휴일이면 [SKIP] 종료
+         ↓ (평일)
 [Playwright 특정사이트 크롤링 (데이터 수집)] & [Google Sheets 연동]
          ↓
     [데이터 병합 및 가공 추출]
@@ -77,6 +82,8 @@
 
 | API / 라이브러리 | 용도 | 권한 방식 |
 |----------------|------|----------|
+| **cron-job.org** | 외부 스케줄러 — 정시 발화 보장 | 서비스 자체 계정 (무료) |
+| **GitHub Actions API** | workflow_dispatch 원격 트리거 | GitHub PAT (repo scope) |
 | Playwright | 사이트 화면 제어 및 DOM 데이터 추출 | 계정 ID/PW 환경변수 |
 | Google Sheets V4 | 스프레드시트 데이터 연동 | Google Service Account Key JSON |
 | Discord Webhook | 결과 전송 및 상태 모니터링 | 단일 Webhook URL 환경변수 |
@@ -85,9 +92,13 @@
 
 | 항목 | 정의 |
 |------|------|
-| **실행 주체** | GitHub Actions (`ubuntu-latest` 워크플로우) |
-| **트리거 조건** | `on.schedule.cron` (매일 한국시간 17시 30분) 및 `on.workflow_dispatch` (수동 On/Off 및 워크플로 즉시 실행) |
+| **실행 주체** | GitHub Actions (`ubuntu-latest`, `training-journal-automation.yml`) |
+| **트리거 조건** | `on.workflow_dispatch` 전용 — 외부 크론(cron-job.org)이 GitHub API를 통해 호출 |
+| **발화 스케줄** | KST 14:10 (UTC 05:10) / KST 17:30 (UTC 08:30), 매주 월~금 |
+| **주말 처리** | cron-job.org 잡이 월~금(`1-5`)으로만 설정되어 원천 차단 |
+| **공휴일 처리** | pipeline.js 내 `isHoliday()` 검사 → `[SKIP]` 조기 종료 (`src/holidays.js` 목록 기준) |
 | **환경 변수 관리** | GitHub Secrets 저장소에 암호화 보관 (크롤링 대상 접속 정보, 구글 API 키, 디스코드 웹훅 URL) |
+| **외부 인증** | cron-job.org → GitHub API 호출 시 `Authorization: Bearer <PAT>` 헤더 사용 |
 
 ## 11. 환경 변수 및 사용자 설정 (Environment Variables)
 

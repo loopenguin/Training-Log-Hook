@@ -97,3 +97,92 @@
 - **레포지토리 자체의 변경/삭제/오류 파악 체계:** 
   - GitHub 정책에 따라, 레포지토리가 소유자에 의해 삭제되거나 권한 오류가 생기는 경우에는 GitHub 측 시스템에서 계정 이메일로 직통 경고 메일을 발송하므로 인프라 레벨의 단절 또한 파악할 수 있습니다.
   - 저장소에 60일 이상 아무런 활동(Commit 등)이 없으면 방치된 것으로 간주해 워크플로가 일시 정지될 수 있는데, 이 경우에도 사전에 GitHub이 계정 주인의 이메일로 알림을 보냅니다.
+
+---
+
+## 5. 외부 크론 설정 가이드 (cron-job.org) — v1.2.0~
+
+v1.2.0부터 GitHub Actions 내장 cron 대신 **cron-job.org 외부 크론**이 발화를 담당합니다.
+GHA 내장 cron은 트래픽 과부하 시 수십 분~수 시간 지연될 수 있어, 정시 발화 보장을 위해 외부 서비스로 전환되었습니다.
+
+### 5.1 발화 구조
+
+```
+cron-job.org (외부 스케줄러, 정시 보장)
+  └─ POST https://api.github.com/repos/{owner}/{repo}/actions/workflows/training-journal-automation.yml/dispatches
+       └─ GitHub Actions workflow_dispatch 트리거
+            └─ 파이프라인 실행 → LMS 기입 → Discord 보고
+```
+
+### 5.2 GitHub PAT 발급 (cron-job.org 인증용)
+
+cron-job.org가 GitHub API를 호출하려면 **Personal Access Token(PAT)** 이 필요합니다.
+
+1. [github.com/settings/tokens](https://github.com/settings/tokens) 접속
+2. **[Generate new token (classic)]** 클릭
+3. 아래 설정으로 토큰 생성:
+
+| 항목 | 값 |
+|------|----|
+| **Note** | `cron-job.org workflow dispatch` |
+| **Expiration** | 원하는 만료 기간 (90일 또는 1년 권장) |
+| **Scope** | `repo` (전체 체크) |
+
+4. 생성된 토큰(`ghp_...`)을 반드시 별도 안전한 곳에 저장 (이후 재열람 불가)
+
+> ⚠️ PAT는 민감 정보입니다. 채팅·이메일에 노출된 경우 즉시 GitHub에서 Regenerate 처리해야 합니다.
+
+### 5.3 cron-job.org 잡 생성
+
+[console.cron-job.org](https://console.cron-job.org) 에서 잡 2개를 각각 생성합니다.
+
+**공통 설정 (두 잡 모두 동일):**
+
+| 항목 | 값 |
+|------|----|
+| **URL** | `https://api.github.com/repos/loopenguin/Training-Log-Hook/actions/workflows/training-journal-automation.yml/dispatches` |
+| **Request Method** | `POST` |
+| **Headers → Authorization** | `Bearer ghp_...` (5.2에서 발급한 PAT) |
+| **Headers → Accept** | `application/vnd.github+json` |
+| **Headers → Content-Type** | `application/json` |
+| **Request Body** | `{"ref":"main"}` |
+| **Days of Week** | 월 화 수 목 금 (토·일 제외) |
+
+**개별 스케줄 설정:**
+
+| 잡 이름 | 실행 시각 (KST) | UTC 시각 |
+|---------|----------------|---------|
+| `Training Journal - 14:10 KST` | 14:10 | 05:10 |
+| `Training Journal - 17:30 KST` | 17:30 | 08:30 |
+
+### 5.4 PAT 교체 방법
+
+PAT가 만료되거나 재발급이 필요한 경우:
+
+1. GitHub에서 새 PAT 발급 (5.2 참고)
+2. cron-job.org → 각 잡 편집(Edit) → Headers → Authorization 값만 새 토큰으로 교체
+3. 기존 토큰은 GitHub에서 삭제(Revoke)
+
+### 5.5 수동 발화 방법
+
+테스트 또는 긴급 수동 실행이 필요한 경우:
+
+**방법 1 — GitHub Actions UI:**
+1. 저장소 → **[Actions]** 탭
+2. `training-journal-automation` 워크플로 클릭
+3. **[Run workflow]** 버튼 클릭
+
+**방법 2 — PowerShell (GitHub API 직접 호출):**
+```powershell
+$headers = @{
+    "Authorization" = "Bearer ghp_..."
+    "Accept" = "application/vnd.github+json"
+    "Content-Type" = "application/json"
+}
+Invoke-RestMethod -Uri "https://api.github.com/repos/loopenguin/Training-Log-Hook/actions/workflows/training-journal-automation.yml/dispatches" `
+    -Method POST -Headers $headers -Body '{"ref":"main"}'
+```
+
+**방법 3 — cron-job.org 즉시 실행:**
+1. [console.cron-job.org/jobs](https://console.cron-job.org/jobs)
+2. 잡 선택 → 상세 페이지 → **[Test run]** 버튼
