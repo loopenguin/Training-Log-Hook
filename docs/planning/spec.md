@@ -5,7 +5,7 @@
 | 항목 | 내용 |
 |------|------|
 | **프로젝트명** | `training-journal-automation` |
-| **버전** | `v1.2.0` |
+| **버전** | `v1.3.0` |
 | **한 줄 설명** | 외부 크론 발화 기반 훈련일지 자동화 파이프라인 |
 | **앱 유형** | GitHub Actions 워크플로 (외부 크론 트리거) |
 | **기술 스택** | Node.js / Playwright(UI 자동화) / Google API / GitHub Actions / cron-job.org (외부 스케줄러) |
